@@ -114,15 +114,23 @@ def submiterator_stringify(something):
         return something.encode("utf-8")
 
 def post(label):
+    print_msg('Posting HIT')
     prepare(label)
     posthit(label)
 
 def rename_results(label):
+    print_msg('Renaming results file')
     fl = os.listdir('.')
     results_files = [x for x in fl if label in x and '.results' in x]
-    nums = [int(x.split('_')[-1].split('.')[0]) for x in results_files]
-    file_num = max(nums)+1
+    nums = [int(x.split('_')[-1].split('.')[0]) for x in results_files if x != label+'.results']
+    if len(nums) == 0:
+        file_num = str(1)
+    else:
+        file_num = str(max(nums)+1)
     os.rename(label+'.results',label+'_'+file_num+'.results')
+
+def print_msg(msg):
+    print('===== '+msg+' =====')
 
 def main():
     global TOTAL_NUM
@@ -130,6 +138,8 @@ def main():
     global NUM_RESPONSES
     global LOCK_NAME
     global DELAY
+
+    print_msg('Starting run')
 
     if os.path.isfile(LOCK_NAME+'~'):
         raise Exception('Process already running.')
@@ -139,13 +149,15 @@ def main():
 
     while NUM_RESPONSES < TOTAL_NUM:
         if os.path.isfile(LOCK_NAME):
+            print_msg('Sleeping for '+DELAY+' seconds...')
             time.sleep(DELAY)
-            continue
         else:
-            with open(LOCK_NAME,'w') as f:
-                f.write(LABEL)
+            with open(LOCK_NAME,'w') as g:
+                g.write(LABEL)
             post(LABEL)
+            print_msg('Sleeping for '+DELAY+' seconds...')
             time.sleep(DELAY)
+        print_msg('Checking results')
         results = subprocess.check_output("""
             HERE=`pwd`
             cd $MTURK_CMD_HOME/bin
@@ -155,10 +167,12 @@ def main():
             ./getResults.sh -successfile "$label.success" -outputfile "$label.results"
             """,
             shell=True)
-        print(results)
         completion_data = results.split('\n')[6].split(' ')[2].split('/')
         if int(completion_data[0]) == int(completion_data[1]):
-            os.remove(LOCK_NAME)
+            try:
+                os.remove(LOCK_NAME)
+            except:
+                pass
             rename_results(LABEL)
         NUM_RESPONSES += int(completion_data[0])
         NUM_LEFT = TOTAL_NUM - NUM_RESPONSES
@@ -170,8 +184,10 @@ def main():
             write_config(LABEL,conf)
     os.remove(LOCK_NAME+'~')
 
+main()
 try:
-    main()
-finally:
     os.remove(LOCK_NAME)
     os.remove(LOCK_NAME+'~')
+except:
+    print_msg('Lock files not removed.')
+    pass
