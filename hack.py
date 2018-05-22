@@ -5,6 +5,7 @@ import re
 import sys
 import json
 import time
+import subprocess
 
 TOTAL_NUM = 2
 LABEL = 't_foo'
@@ -101,6 +102,17 @@ def posthit(label):
         """
         )
 
+def submiterator_stringify(something):
+    if something is None:
+        return "NA"
+    if type(something) is int or \
+            type(something) is float or \
+            type(something) is list or \
+            type(something) is bool:
+        return str(something).encode('utf-8')
+    else:
+        return something.encode("utf-8")
+
 def post(label):
     prepare(label)
     posthit(label)
@@ -134,18 +146,17 @@ def main():
                 f.write(LABEL)
             post(LABEL)
             time.sleep(DELAY)
-        results = os.popen("""
+        results = subprocess.check_output("""
             HERE=`pwd`
             cd $MTURK_CMD_HOME/bin
-
-            NAME_OF_EXPERIMENT_FILES=""" + label + """
+            NAME_OF_EXPERIMENT_FILES=""" + LABEL + """
             export NAME_OF_EXPERIMENT_FILES
             label="$HERE/$NAME_OF_EXPERIMENT_FILES"
             ./getResults.sh -successfile "$label.success" -outputfile "$label.results"
-            """)
-        for line in results:
-            print(line[:-1])
-        completion_data = results[6].split(' ')[2].split('/')
+            """,
+            shell=True)
+        print(results)
+        completion_data = results.split('\n')[6].split(' ')[2].split('/')
         if int(completion_data[0]) == int(completion_data[1]):
             os.remove(LOCK_NAME)
             rename_results(LABEL)
