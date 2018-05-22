@@ -6,3 +6,4 @@
 *.question
 *.RData
 *.Rhistory
+t_*
